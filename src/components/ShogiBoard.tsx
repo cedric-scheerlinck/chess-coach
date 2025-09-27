@@ -494,7 +494,8 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                         background: "linear-gradient(135deg, #ffe4b5, #f3cf96)",
                         // simulate border on clipped shape
                         boxShadow: "0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 2px #8b5a2b",
-                        clipPath: "polygon(20% 2%, 80% 2%, 94% 32%, 50% 98%, 6% 32%)",
+                        // tip at top so non-rotated (sente) points upward toward opponent
+                        clipPath: "polygon(20% 98%, 80% 98%, 94% 68%, 50% 2%, 6% 68%)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -502,7 +503,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                         fontWeight: 700,
                         color: cell.startsWith("+") ? "#cc0000" : "#222",
                         transform: /[a-z]/.test(cell) ? "rotate(180deg)" : "none",
-                        paddingBottom: 2,
+                        paddingTop: 2,
                         opacity: getSide(cell) === turn ? 1 : 0.6,
                       }}
                       title={cell}
@@ -603,6 +604,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                 enabled={turn === "sente" && hands.sente[k] > 0}
                 onDragStart={() => setDragFromHand({ side: "sente", piece: k })}
                 onDragEnd={() => setDragFromHand(null)}
+                tileStyle={{ transform: "rotate(180deg)" }}
               />
             ))}
           </div>
@@ -612,12 +614,13 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
   );
 }
 
-function HandPiece({ label, count, enabled, onDragStart, onDragEnd }: {
+function HandPiece({ label, count, enabled, onDragStart, onDragEnd, tileStyle }: {
   label: string;
   count: number;
   enabled: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  tileStyle?: React.CSSProperties;
 }) {
   return (
     <div className="relative flex items-center justify-center">
@@ -630,6 +633,7 @@ function HandPiece({ label, count, enabled, onDragStart, onDragEnd }: {
           background: "linear-gradient(135deg, #ffe4b5, #f3cf96)",
           boxShadow: "0 1px 3px rgba(0,0,0,0.25), inset 0 0 0 2px #8b5a2b",
           clipPath: "polygon(12% 2%, 88% 2%, 98% 30%, 50% 98%, 2% 30%)",
+          ...(tileStyle || {}),
         }}
         title={label}
       >
