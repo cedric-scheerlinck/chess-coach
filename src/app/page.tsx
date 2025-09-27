@@ -26,7 +26,7 @@ export default function CopilotKitPage() {
 
   return (
     <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
-      <YourMainContent themeColor={themeColor} />
+      <YourMainContent themeColor={themeColor} sidebarOpen={showSidebar} />
       {showSidebar && (
         <CopilotSidebar
           clickOutsideToClose={false}
@@ -62,7 +62,7 @@ type GameState = {
   gameType: "chess" | "shogi";
 }
 
-function YourMainContent({ themeColor }: { themeColor: string }) {
+function YourMainContent({ themeColor, sidebarOpen }: { themeColor: string; sidebarOpen: boolean }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
   const {state, setState} = useCoAgent<GameState>({
     name: "sample_agent",
@@ -93,7 +93,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
 
   return (
     <div
-      style={{ backgroundColor: themeColor }}
+      style={{ backgroundColor: themeColor, paddingRight: sidebarOpen ? 380 : 0 }}
       className="h-screen w-screen flex justify-center items-center flex-col transition-colors duration-300"
     >
       <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-4xl w-full">
