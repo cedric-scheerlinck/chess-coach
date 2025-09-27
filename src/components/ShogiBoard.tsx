@@ -605,6 +605,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                 onDragStart={() => setDragFromHand({ side: "sente", piece: k })}
                 onDragEnd={() => setDragFromHand(null)}
                 tileStyle={{ transform: "rotate(180deg)" }}
+                textRotate={180}
               />
             ))}
           </div>
@@ -614,13 +615,14 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
   );
 }
 
-function HandPiece({ label, count, enabled, onDragStart, onDragEnd, tileStyle }: {
+function HandPiece({ label, count, enabled, onDragStart, onDragEnd, tileStyle, textRotate }: {
   label: string;
   count: number;
   enabled: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
   tileStyle?: React.CSSProperties;
+  textRotate?: number;
 }) {
   return (
     <div className="relative flex items-center justify-center">
@@ -637,7 +639,9 @@ function HandPiece({ label, count, enabled, onDragStart, onDragEnd, tileStyle }:
         }}
         title={label}
       >
-        {label}
+        <span style={{ display: "inline-block", transform: textRotate ? `rotate(${textRotate}deg)` : undefined }}>
+          {label}
+        </span>
       </div>
       {count > 0 && (
         <div className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
