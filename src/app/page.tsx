@@ -56,16 +56,20 @@ export default function CopilotKitPage() {
 //   proverbs: string[];
 // }
 
-type ChessState = {
-  position: string;
+type GameState = {
+  position: string; // Chess FEN (kept for compatibility)
+  shogiPosition: string; // Shogi SFEN (board field)
+  gameType: "chess" | "shogi";
 }
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
-  const {state, setState} = useCoAgent<ChessState>({
+  const {state, setState} = useCoAgent<GameState>({
     name: "sample_agent",
     initialState: {
       position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      shogiPosition: "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL",
+      gameType: "chess",
     },
   })
 
@@ -77,6 +81,13 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     setState({
       ...state,
       position: newPosition,
+    });
+  };
+  const handleShogiPositionChange = (newPosition: string) => {
+    setShogiPosition(newPosition);
+    setState({
+      ...state,
+      shogiPosition: newPosition,
     });
   };
 
@@ -91,13 +102,19 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         <div className="flex justify-center gap-2 mb-4">
           <button
             className={`px-4 py-2 rounded-md text-white ${gameType === "chess" ? "bg-indigo-600" : "bg-indigo-400/60"}`}
-            onClick={() => setGameType("chess")}
+            onClick={() => {
+              setGameType("chess");
+              setState({ ...state, gameType: "chess" });
+            }}
           >
             Chess
           </button>
           <button
             className={`px-4 py-2 rounded-md text-white ${gameType === "shogi" ? "bg-indigo-600" : "bg-indigo-400/60"}`}
-            onClick={() => setGameType("shogi")}
+            onClick={() => {
+              setGameType("shogi");
+              setState({ ...state, gameType: "shogi" });
+            }}
           >
             Shogi
           </button>
@@ -110,8 +127,8 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
           />
         ) : (
           <ShogiBoard 
-            position={shogiPosition}
-            onPositionChange={setShogiPosition}
+            position={state?.shogiPosition ?? shogiPosition}
+            onPositionChange={handleShogiPositionChange}
             size={450}
           />
         )}
@@ -121,7 +138,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
             {gameType === "chess" ? (
               <>Chess FEN: {state?.position?.substring(0, 50)}...</>
             ) : (
-              <>Shogi SFEN: {(shogiPosition ?? "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL").substring(0, 50)}...</>
+              <>Shogi SFEN: {(state?.shogiPosition ?? shogiPosition ?? "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL").substring(0, 50)}...</>
             )}
           </p>
         </div>

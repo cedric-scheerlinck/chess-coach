@@ -258,6 +258,7 @@ function basePiece(piece: string): string {
 }
 
 function isPromotable(piece: string): boolean {
+  if (piece.startsWith("+")) return false; // already promoted cannot promote again
   const p = basePiece(piece).toLowerCase();
   return ["p", "l", "n", "s", "r", "b"].includes(p);
 }
@@ -498,7 +499,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                         justifyContent: "center",
                         fontSize: Math.floor(squareSize * 0.45),
                         fontWeight: 700,
-                        color: /[A-Z]/.test(cell) ? "#222" : "#222",
+                        color: cell.startsWith("+") ? "#cc0000" : "#222",
                         transform: /[a-z]/.test(cell) ? "rotate(180deg)" : "none",
                         boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
                         paddingBottom: 2,
@@ -581,7 +582,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
           <div className="grid grid-cols-4 gap-2">
             {(["P","L","N","S","G","B","R"] as const).map((k) => (
               <HandPiece
-                key={"gote-"+k}
+                key={`gote-${k}`}
                 label={PIECE_LABEL[k.toLowerCase()] ?? k}
                 count={hands.gote[k]}
                 enabled={turn === "gote" && hands.gote[k] > 0}
@@ -596,7 +597,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
           <div className="grid grid-cols-4 gap-2">
             {(["P","L","N","S","G","B","R"] as const).map((k) => (
               <HandPiece
-                key={"sente-"+k}
+                key={`sente-${k}`}
                 label={PIECE_LABEL[k] ?? k}
                 count={hands.sente[k]}
                 enabled={turn === "sente" && hands.sente[k] > 0}
@@ -624,7 +625,7 @@ function HandPiece({ label, count, enabled, onDragStart, onDragEnd }: {
         draggable={enabled}
         onDragStart={enabled ? onDragStart : undefined}
         onDragEnd={enabled ? onDragEnd : undefined}
-        className={`w-10 h-10 rounded bg-amber-100 border border-amber-700 flex items-center justify-center text-sm font-bold shadow ${enabled ? "opacity-100" : "opacity-40"}`}
+        className={`w-10 h-10 rounded bg-amber-100 border border-amber-700 flex items-center justify-center text-sm font-bold shadow text-black ${enabled ? "opacity-100" : "opacity-40"}`}
         title={label}
       >
         {label}
