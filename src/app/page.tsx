@@ -77,6 +77,22 @@ function YourMainContent({ themeColor, sidebarOpen }: { themeColor: string; side
   const [gameType, setGameType] = useState<"chess" | "shogi">("chess");
   const [shogiPosition, setShogiPosition] = useState<string | undefined>(undefined); // undefined -> ShogiBoard uses default
 
+  // 🪁 Frontend Action for setting chess position
+  useCopilotAction({
+    name: "set_chess_position",
+    parameters: [{
+      name: "fen_position",
+      description: "The FEN position string to set on the chess board. Must be a valid FEN notation.",
+      required: true,
+    }],
+    handler({ fen_position }) {
+      setState({
+        ...state,
+        position: fen_position,
+      });
+    },
+  });
+
   const handlePositionChange = (newPosition: string) => {
     setState({
       ...state,
