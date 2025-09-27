@@ -29,6 +29,13 @@ def set_chess_position(
     """Set the chess board to a specific FEN position. Use this to show specific positions, openings, or tactical puzzles."""
     return f"Setting chess position to: {fen_position}"
 
+# Shogi position tool - allows the AI to set specific SFEN positions
+def set_shogi_position(
+    sfen_position: Annotated[str, "The SFEN position string to set on the shogi board. Must be a valid SFEN notation (board field only)."],
+) -> str:
+    """Set the shogi board to a specific SFEN position. Use this to show specific positions, openings, or tactical puzzles."""
+    return f"Setting shogi position to: {sfen_position}"
+
 # This is a backend tool that executes code on the backend server
 # For now this is a dummy implementation, but it could very well call a weather API
 async def get_weather(
@@ -41,11 +48,13 @@ async def get_weather(
 agentic_chat_router = get_ag_ui_workflow_router(
     llm=OpenAI(model="gpt-4.1"),
     # Tools that are executed in the frontend client
-    frontend_tools=[set_chess_position],
+    frontend_tools=[set_chess_position, set_shogi_position],
     # Tools that are executed in the backend server
     backend_tools=[],
-    system_prompt="You are a helpful chess assistant that can analyze chess positions, suggest moves, and help with chess strategy. You can understand FEN notation and provide chess advice. You can set specific positions on the board using the set_chess_position tool to demonstrate openings, tactics, or specific game situations.",
+    system_prompt="You are a helpful chess and shogi assistant that can analyze positions, suggest moves, and help with strategy for both games. You can understand FEN notation for chess and SFEN notation for shogi. You can set specific positions on the board using the set_chess_position tool for chess or set_shogi_position tool for shogi to demonstrate openings, tactics, or specific game situations.",
     initial_state={
         "position": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "shogiPosition": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL",
+        "gameType": "chess",
     },
 )

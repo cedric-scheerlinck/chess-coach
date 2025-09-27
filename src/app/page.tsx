@@ -93,6 +93,22 @@ function YourMainContent({ themeColor, sidebarOpen }: { themeColor: string; side
     },
   });
 
+  // 🪁 Frontend Action for setting shogi position
+  useCopilotAction({
+    name: "set_shogi_position",
+    parameters: [{
+      name: "sfen_position",
+      description: "The SFEN position string to set on the shogi board. Must be a valid SFEN notation (board field only).",
+      required: true,
+    }],
+    handler({ sfen_position }) {
+      setState({
+        ...state,
+        shogiPosition: sfen_position,
+      });
+    },
+  });
+
   const handlePositionChange = (newPosition: string) => {
     setState({
       ...state,
@@ -133,6 +149,25 @@ function YourMainContent({ themeColor, sidebarOpen }: { themeColor: string; side
             }}
           >
             Shogi
+          </button>
+          <button
+            className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+            onClick={() => {
+              if (gameType === "chess") {
+                setState({
+                  ...state,
+                  position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                });
+              } else {
+                setState({
+                  ...state,
+                  shogiPosition: "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL",
+                });
+                setShogiPosition(undefined);
+              }
+            }}
+          >
+            Reset Board
           </button>
         </div>
         <hr className="border-white/20 my-6" />
