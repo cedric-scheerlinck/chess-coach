@@ -9,6 +9,7 @@ import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
+  const [showSidebar, setShowSidebar] = useState(true);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useCopilotAction({
@@ -26,14 +27,26 @@ export default function CopilotKitPage() {
   return (
     <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       <YourMainContent themeColor={themeColor} />
-      <CopilotSidebar
-        clickOutsideToClose={false}
-        defaultOpen={true}
-        labels={{
-          title: "Board Assistant",
-          initial: "👋 Hi! I'm your board assistant. Toggle between Chess and Shogi. I can help you analyze positions, suggest moves, and explain concepts. The chessboard will update in real-time as we discuss the game!"
-        }}
-      />
+      {showSidebar && (
+        <CopilotSidebar
+          clickOutsideToClose={false}
+          defaultOpen={true}
+          labels={{
+            title: "Board Assistant",
+            initial: "👋 Hi! I'm your board assistant. Toggle between Chess and Shogi. I can help you analyze positions, suggest moves, and explain concepts. The chessboard will update in real-time as we discuss the game!"
+          }}
+        />
+      )}
+
+      {/* Floating toggle button */}
+      <button
+        onClick={() => setShowSidebar((v) => !v)}
+        style={{ position: "fixed", top: "50%", right: 12, transform: "translateY(-50%)" }}
+        className="z-50 px-3 py-2 rounded-md shadow bg-white/90 hover:bg-white text-gray-800 border border-gray-300"
+        aria-label={showSidebar ? "Hide chat" : "Show chat"}
+      >
+        {showSidebar ? "Hide Chat" : "Show Chat"}
+      </button>
     </main>
   );
 }

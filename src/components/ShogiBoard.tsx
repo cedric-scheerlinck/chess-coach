@@ -36,6 +36,19 @@ const PIECE_LABEL: Record<string, string> = {
   B: "角",
   R: "飛",
   K: "玉",
+  
+  "+p": "と",
+  "+l": "成香",
+  "+n": "成桂",
+  "+s": "成銀",
+  "+b": "馬",
+  "+r": "龍",
+  "+P": "と",
+  "+L": "成香",
+  "+N": "成桂",
+  "+S": "成銀",
+  "+B": "馬",
+  "+R": "龍",
 };
 
 type Side = "sente" | "gote";
@@ -183,9 +196,21 @@ function parseBoardFromSFEN(sfen: string): (string | null)[][] {
   if (rows.length !== 9) return board;
   for (let r = 0; r < 9; r++) {
     let file = 0;
-    for (const ch of rows[r]) {
+    const row = rows[r];
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
       if (/^[1-9]$/.test(ch)) {
         file += parseInt(ch, 10);
+      } else if (ch === "+") {
+        // promoted piece token is "+X"
+        const next = row[i + 1];
+        if (next && /[a-zA-Z]/.test(next)) {
+          if (file < 9) {
+            board[r][file] = "+" + next;
+            file += 1;
+          }
+          i += 1;
+        }
       } else {
         if (file < 9) {
           board[r][file] = ch;
@@ -211,7 +236,11 @@ function boardToSFEN(board: (string | null)[][]): string {
           row += String(empty);
           empty = 0;
         }
-        row += cell;
+        if (cell.startsWith("+")) {
+          row += cell; // already in +X form
+        } else {
+          row += cell;
+        }
       }
     }
     if (empty > 0) row += String(empty);
@@ -220,26 +249,187 @@ function boardToSFEN(board: (string | null)[][]): string {
   return rows.join("/");
 }
 
+function inPromotionZone(side: Side, r: number): boolean {
+  return side === "sente" ? r <= 2 : r >= 6;
+}
+
+function basePiece(piece: string): string {
+  return piece.startsWith("+") ? piece[1] : piece;
+}
+
+function isPromotable(piece: string): boolean {
+  const p = basePiece(piece).toLowerCase();
+  return ["p", "l", "n", "s", "r", "b"].includes(p);
+}
+
+function promotedVersion(piece: string): string {
+  const p = basePiece(piece);
+  // Already promoted
+  if (piece.startsWith("+")) return piece;
+  return "+" + p;
+}
+
+function isForcedPromotion(side: Side, toR: number, piece: string): boolean {
+  const p = basePiece(piece).toLowerCase();
+  if (p === "p" || p === "l") {
+    return (side === "sente" && toR === 0) || (side === "gote" && toR === 8);
+  }
+  if (p === "n") {
+    return (side === "sente" && toR <= 1) || (side === "gote" && toR >= 7);
+  }
+  return false;
+}
+
+function isMovePatternLegal(
+  board: (string | null)[][],
+  fromR: number,
+  fromC: number,
+  toR: number,
+  toC: number,
+  piece: string,
+  side: Side
+): boolean {
+  const target = board[toR][toC];
+  if (target && getSide(target) === side) return false;
+  const dr = toR - fromR;
+  const dc = toC - fromC;
+
+  const promoted = piece.startsWith("+");
+  const p = basePiece(piece).toLowerCase();
+
+  if (promoted && ["p", "l", "n", "s"].includes(p)) {
+    return isGoldMove(side, dr, dc);
+  }
+  if (p === "k") return isKingMove(dr, dc);
+  if (p === "g") return isGoldMove(side, dr, dc);
+  if (p === "s") return isSilverMove(side, dr, dc);
+  if (p === "n") return isKnightMove(side, dr, dc);
+  if (p === "p") return isPawnMove(side, dr, dc);
+  if (p === "l") {
+    if (!isLanceMove(side, dr, dc)) return false;
+    return pathClear(board, fromR, fromC, toR, toC);
+  }
+  if (p === "r") {
+    if (isRookMove(dr, dc)) return pathClear(board, fromR, fromC, toR, toC);
+    if (promoted) {
+      // dragon: rook + one-step diagonals
+      return Math.abs(dr) === 1 && Math.abs(dc) === 1;
+    }
+    return false;
+  }
+  if (p === "b") {
+    if (isBishopMove(dr, dc)) return pathClear(board, fromR, fromC, toR, toC);
+    if (promoted) {
+      // horse: bishop + one-step orthogonals
+      return (Math.abs(dr) === 1 && dc === 0) || (Math.abs(dc) === 1 && dr === 0);
+    }
+    return false;
+  }
+  return false;
+}
+
 export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoardProps) {
   const [dragFrom, setDragFrom] = useState<{ r: number; c: number } | null>(null);
   const [turn, setTurn] = useState<Side>("sente");
+  const [pending, setPending] = useState<
+    | null
+    | { fromR: number; fromC: number; toR: number; toC: number; piece: string; side: Side; forced: boolean }
+  >(null);
+  const [hands, setHands] = useState<{
+    sente: Record<"P" | "L" | "N" | "S" | "G" | "B" | "R", number>;
+    gote: Record<"P" | "L" | "N" | "S" | "G" | "B" | "R", number>;
+  }>({
+    sente: { P: 0, L: 0, N: 0, S: 0, G: 0, B: 0, R: 0 },
+    gote: { P: 0, L: 0, N: 0, S: 0, G: 0, B: 0, R: 0 },
+  });
+  const [dragFromHand, setDragFromHand] = useState<null | { side: Side; piece: "P" | "L" | "N" | "S" | "G" | "B" | "R" }>(null);
 
   const sfen = position && position.trim().length > 0 ? position : SHOGI_START_SFEN;
   const board = useMemo(() => parseBoardFromSFEN(sfen), [sfen]);
 
   const handleDrop = useCallback(
     (toR: number, toC: number) => {
+      // Handle drops from hand first
+      if (dragFromHand) {
+        if (board[toR][toC]) { setDragFromHand(null); return; }
+        const side = dragFromHand.side;
+        if (side !== turn) { setDragFromHand(null); return; }
+        const pieceLetter = dragFromHand.piece; // uppercase hand key
+        // Convert to board piece by side case
+        const boardPiece = side === "sente" ? pieceLetter : pieceLetter.toLowerCase();
+        // Drop legality
+        // End-rank restriction
+        if (pieceLetter === "P" || pieceLetter === "L") {
+          if ((side === "sente" && toR === 0) || (side === "gote" && toR === 8)) { setDragFromHand(null); return; }
+        }
+        if (pieceLetter === "N") {
+          if ((side === "sente" && toR <= 1) || (side === "gote" && toR >= 7)) { setDragFromHand(null); return; }
+        }
+        // Nifu: cannot drop pawn on a file where side already has an unpromoted pawn
+        if (pieceLetter === "P") {
+          const hasPawnInFile = board.some((row) => row[toC] === (side === "sente" ? "P" : "p"));
+          if (hasPawnInFile) { setDragFromHand(null); return; }
+        }
+
+        const next = board.map((row) => row.slice());
+        next[toR][toC] = boardPiece;
+        const nextSFEN = boardToSFEN(next);
+        onPositionChange?.(nextSFEN);
+        // decrement hand
+        setHands((h) => ({
+          ...h,
+          [side]: { ...h[side], [pieceLetter]: Math.max(0, h[side][pieceLetter] - 1) },
+        }));
+        setTurn((prev) => (prev === "sente" ? "gote" : "sente"));
+        setDragFromHand(null);
+        return;
+      }
+
       if (!dragFrom) return;
       const piece = board[dragFrom.r][dragFrom.c];
       if (!piece) { setDragFrom(null); return; }
       const side = getSide(piece);
       if (side !== turn) { setDragFrom(null); return; }
 
-      if (!isLegalMove(board, dragFrom.r, dragFrom.c, toR, toC, piece, side)) {
+      // pattern legality (ignores last-rank restriction; promotion choice may affect that)
+      if (!inBounds(toR, toC)) { setDragFrom(null); return; }
+      if (!isMovePatternLegal(board, dragFrom.r, dragFrom.c, toR, toC, piece, side)) {
         setDragFrom(null);
         return;
       }
 
+      const eligible = isPromotable(piece) && (inPromotionZone(side, dragFrom.r) || inPromotionZone(side, toR));
+      const forced = eligible && isForcedPromotion(side, toR, piece);
+
+      if (forced) {
+        // auto-promote
+        const next = board.map((row) => row.slice());
+        // capture handling
+        const target = next[toR][toC];
+        if (target) {
+          const capturedBase = basePiece(target).toUpperCase() as "P" | "L" | "N" | "S" | "G" | "B" | "R";
+          setHands((h) => ({
+            ...h,
+            [side]: { ...h[side], [capturedBase]: h[side][capturedBase] + 1 },
+          }));
+        }
+        next[dragFrom.r][dragFrom.c] = null;
+        next[toR][toC] = promotedVersion(piece);
+        const nextSFEN = boardToSFEN(next);
+        onPositionChange?.(nextSFEN);
+        setTurn((prev) => (prev === "sente" ? "gote" : "sente"));
+        setDragFrom(null);
+        return;
+      }
+
+      if (eligible) {
+        // show UI choice
+        setPending({ fromR: dragFrom.r, fromC: dragFrom.c, toR, toC, piece, side, forced: false });
+        setDragFrom(null);
+        return;
+      }
+
+      // not eligible -> normal move
       const next = board.map((row) => row.slice());
       next[dragFrom.r][dragFrom.c] = null;
       next[toR][toC] = piece;
@@ -248,13 +438,13 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
       setTurn((prev) => (prev === "sente" ? "gote" : "sente"));
       setDragFrom(null);
     },
-    [board, dragFrom, onPositionChange, turn]
+    [board, dragFrom, dragFromHand, onPositionChange, turn]
   );
 
   const squareSize = Math.floor(size / 9);
 
   return (
-    <div className="flex justify-center flex-col items-center gap-2">
+    <div className="flex justify-center items-start gap-4">
       <div className="text-sm text-gray-800 bg-white/70 px-3 py-1 rounded-md shadow">
         Turn: {turn === "sente" ? "Sente (▲)" : "Gote (▽)"}
       </div>
@@ -324,7 +514,126 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
             })}
           </div>
         ))}
+
+        {pending && (
+          <div
+            className="absolute inset-0 bg-black/40 flex items-center justify-center"
+            onClick={() => setPending(null)}
+          >
+            <div className="bg-white rounded-lg shadow-lg p-4 min-w-[240px]" onClick={(e) => e.stopPropagation()}>
+              <div className="text-center font-semibold mb-3">Promote this piece?</div>
+              <div className="flex gap-3 justify-center">
+                <button
+                  className="px-3 py-2 rounded bg-indigo-600 text-white"
+                  onClick={() => {
+                    const next = board.map((row) => row.slice());
+                    // capture handling for pending move
+                    const target2 = next[pending.toR][pending.toC];
+                    if (target2) {
+                      const capturedBase = basePiece(target2).toUpperCase() as "P" | "L" | "N" | "S" | "G" | "B" | "R";
+                      setHands((h) => ({
+                        ...h,
+                        [pending.side]: { ...h[pending.side], [capturedBase]: h[pending.side][capturedBase] + 1 },
+                      }));
+                    }
+                    next[pending.fromR][pending.fromC] = null;
+                    next[pending.toR][pending.toC] = promotedVersion(pending.piece);
+                    const nextSFEN = boardToSFEN(next);
+                    onPositionChange?.(nextSFEN);
+                    setTurn((prev) => (prev === "sente" ? "gote" : "sente"));
+                    setPending(null);
+                  }}
+                >
+                  Promote
+                </button>
+                <button
+                  className="px-3 py-2 rounded bg-gray-200 text-gray-800"
+                  onClick={() => {
+                    const next = board.map((row) => row.slice());
+                    // capture handling for pending move
+                    const target2 = next[pending.toR][pending.toC];
+                    if (target2) {
+                      const capturedBase = basePiece(target2).toUpperCase() as "P" | "L" | "N" | "S" | "G" | "B" | "R";
+                      setHands((h) => ({
+                        ...h,
+                        [pending.side]: { ...h[pending.side], [capturedBase]: h[pending.side][capturedBase] + 1 },
+                      }));
+                    }
+                    next[pending.fromR][pending.fromC] = null;
+                    next[pending.toR][pending.toC] = pending.piece;
+                    const nextSFEN = boardToSFEN(next);
+                    onPositionChange?.(nextSFEN);
+                    setTurn((prev) => (prev === "sente" ? "gote" : "sente"));
+                    setPending(null);
+                  }}
+                >
+                  Do not promote
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+      {/* Hands panel on the right */}
+      <div className="flex flex-col gap-4 min-w-[160px]">
+        <div className="bg-white/80 rounded-md shadow p-2">
+          <div className="font-semibold text-sm mb-2">Gote Hand (▽)</div>
+          <div className="grid grid-cols-4 gap-2">
+            {(["P","L","N","S","G","B","R"] as const).map((k) => (
+              <HandPiece
+                key={"gote-"+k}
+                label={PIECE_LABEL[k.toLowerCase()] ?? k}
+                count={hands.gote[k]}
+                enabled={turn === "gote" && hands.gote[k] > 0}
+                onDragStart={() => setDragFromHand({ side: "gote", piece: k })}
+                onDragEnd={() => setDragFromHand(null)}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="bg-white/80 rounded-md shadow p-2">
+          <div className="font-semibold text-sm mb-2">Sente Hand (▲)</div>
+          <div className="grid grid-cols-4 gap-2">
+            {(["P","L","N","S","G","B","R"] as const).map((k) => (
+              <HandPiece
+                key={"sente-"+k}
+                label={PIECE_LABEL[k] ?? k}
+                count={hands.sente[k]}
+                enabled={turn === "sente" && hands.sente[k] > 0}
+                onDragStart={() => setDragFromHand({ side: "sente", piece: k })}
+                onDragEnd={() => setDragFromHand(null)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HandPiece({ label, count, enabled, onDragStart, onDragEnd }: {
+  label: string;
+  count: number;
+  enabled: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+}) {
+  return (
+    <div className="relative flex items-center justify-center">
+      <div
+        draggable={enabled}
+        onDragStart={enabled ? onDragStart : undefined}
+        onDragEnd={enabled ? onDragEnd : undefined}
+        className={`w-10 h-10 rounded bg-amber-100 border border-amber-700 flex items-center justify-center text-sm font-bold shadow ${enabled ? "opacity-100" : "opacity-40"}`}
+        title={label}
+      >
+        {label}
+      </div>
+      {count > 0 && (
+        <div className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+          {count}
+        </div>
+      )}
     </div>
   );
 }
