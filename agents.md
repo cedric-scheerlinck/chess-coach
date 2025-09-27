@@ -134,11 +134,3 @@ agent/
 │   └── server.py         # FastAPI server
 └── pyproject.toml        # Python dependencies
 ```
-
-## Next Steps
-
-1. **Enhanced Analysis**: Implement position evaluation and move scoring
-2. **Chess Engine Integration**: Connect to Stockfish or similar engines
-3. **Learning Features**: Add opening theory and endgame knowledge
-4. **User Experience**: Improve UI/UX for better coaching experience
-5. **Performance**: Optimize for real-time analysis and responsiveness
