@@ -151,7 +151,7 @@ function YourMainContent({ themeColor, sidebarOpen }: { themeColor: string; side
             Shogi
           </button>
           <button
-            className="px-4 py-2 rounded-md text-white bg-red-600 hover:bg-red-700 transition-colors"
+            className="px-4 py-2 rounded-md text-white bg-red-500 hover:bg-red-600 transition-colors"
             onClick={() => {
               if (gameType === "chess") {
                 setState({
