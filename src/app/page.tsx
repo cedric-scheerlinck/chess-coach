@@ -86,8 +86,8 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       className="h-screen w-screen flex justify-center items-center flex-col transition-colors duration-300"
     >
       <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-4xl w-full">
-        <h1 className="text-4xl font-bold text-white mb-2 text-center">Board Game</h1>
-        <p className="text-gray-200 text-center italic mb-6">Toggle between Chess and Shogi. Play with AI assistance! 🏆</p>
+        <h1 className="text-4xl font-bold text-white mb-2 text-center">Chess Coach</h1>
+        <p className="text-gray-200 text-center italic mb-6">AI-powered chess coach to level up your chess game 🚀</p>
         <div className="flex justify-center gap-2 mb-4">
           <button
             className={`px-4 py-2 rounded-md text-white ${gameType === "chess" ? "bg-indigo-600" : "bg-indigo-400/60"}`}
@@ -116,15 +116,6 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
           />
         )}
 
-        <div className="mt-4 text-center">
-          <p className="text-white/80 text-sm">
-            {gameType === "chess" ? (
-              <>Chess FEN: {state?.position?.substring(0, 50)}...</>
-            ) : (
-              <>Shogi SFEN: {(shogiPosition ?? "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL").substring(0, 50)}...</>
-            )}
-          </p>
-        </div>
       </div>
     </div>
   );
