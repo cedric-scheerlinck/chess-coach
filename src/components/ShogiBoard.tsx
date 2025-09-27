@@ -258,6 +258,7 @@ function basePiece(piece: string): string {
 }
 
 function isPromotable(piece: string): boolean {
+  if (piece.startsWith("+")) return false; // already promoted cannot promote again
   const p = basePiece(piece).toLowerCase();
   return ["p", "l", "n", "s", "r", "b"].includes(p);
 }
@@ -488,19 +489,19 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                       draggable
                       onDragStart={() => setDragFrom({ r, c })}
                       style={{
-                        width: Math.floor(squareSize * 0.85),
-                        height: Math.floor(squareSize * 0.85),
-                        background: "#ffe4b5",
-                        border: "1px solid #8b5a2b",
-                        borderRadius: 6,
+                        width: Math.floor(squareSize * 0.82),
+                        height: Math.floor(squareSize * 0.82),
+                        background: "linear-gradient(135deg, #ffe4b5, #f3cf96)",
+                        // simulate border on clipped shape
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.25), inset 0 0 0 2px #8b5a2b",
+                        clipPath: "polygon(20% 2%, 80% 2%, 94% 32%, 50% 98%, 6% 32%)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: Math.floor(squareSize * 0.45),
+                        fontSize: Math.floor(squareSize * 0.42),
                         fontWeight: 700,
-                        color: /[A-Z]/.test(cell) ? "#222" : "#222",
+                        color: cell.startsWith("+") ? "#cc0000" : "#222",
                         transform: /[a-z]/.test(cell) ? "rotate(180deg)" : "none",
-                        boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
                         paddingBottom: 2,
                         opacity: getSide(cell) === turn ? 1 : 0.6,
                       }}
@@ -581,7 +582,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
           <div className="grid grid-cols-4 gap-2">
             {(["P","L","N","S","G","B","R"] as const).map((k) => (
               <HandPiece
-                key={"gote-"+k}
+                key={`gote-${k}`}
                 label={PIECE_LABEL[k.toLowerCase()] ?? k}
                 count={hands.gote[k]}
                 enabled={turn === "gote" && hands.gote[k] > 0}
@@ -596,7 +597,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
           <div className="grid grid-cols-4 gap-2">
             {(["P","L","N","S","G","B","R"] as const).map((k) => (
               <HandPiece
-                key={"sente-"+k}
+                key={`sente-${k}`}
                 label={PIECE_LABEL[k] ?? k}
                 count={hands.sente[k]}
                 enabled={turn === "sente" && hands.sente[k] > 0}
@@ -624,7 +625,12 @@ function HandPiece({ label, count, enabled, onDragStart, onDragEnd }: {
         draggable={enabled}
         onDragStart={enabled ? onDragStart : undefined}
         onDragEnd={enabled ? onDragEnd : undefined}
-        className={`w-10 h-10 rounded bg-amber-100 border border-amber-700 flex items-center justify-center text-sm font-bold shadow ${enabled ? "opacity-100" : "opacity-40"}`}
+        className={`w-10 h-10 flex items-center justify-center text-sm font-bold text-black ${enabled ? "opacity-100" : "opacity-40"}`}
+        style={{
+          background: "linear-gradient(135deg, #ffe4b5, #f3cf96)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.25), inset 0 0 0 2px #8b5a2b",
+          clipPath: "polygon(12% 2%, 88% 2%, 98% 30%, 50% 98%, 2% 30%)",
+        }}
         title={label}
       >
         {label}
