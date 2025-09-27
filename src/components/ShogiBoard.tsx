@@ -38,6 +38,145 @@ const PIECE_LABEL: Record<string, string> = {
   K: "玉",
 };
 
+type Side = "sente" | "gote";
+
+function getSide(cell: string): Side {
+  return /[A-Z]/.test(cell) ? "sente" : "gote";
+}
+
+function inBounds(r: number, c: number): boolean {
+  return r >= 0 && r < 9 && c >= 0 && c < 9;
+}
+
+function pathClear(board: (string | null)[][], r1: number, c1: number, r2: number, c2: number): boolean {
+  let dr = Math.sign(r2 - r1);
+  let dc = Math.sign(c2 - c1);
+  let r = r1 + dr;
+  let c = c1 + dc;
+  while (r !== r2 || c !== c2) {
+    if (board[r][c]) return false;
+    r += dr;
+    c += dc;
+  }
+  return true;
+}
+
+function isGoldMove(side: Side, dr: number, dc: number): boolean {
+  const goldMovesSente = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],           [0, 1],
+              [1, 0],
+  ];
+  const goldMovesGote = [
+              [-1, 0],
+    [0, -1],           [0, 1],
+    [1, -1],  [1, 0],  [1, 1],
+  ];
+  const ref = side === "sente" ? goldMovesSente : goldMovesGote;
+  return ref.some(([r, c]) => r === dr && c === dc);
+}
+
+function isSilverMove(side: Side, dr: number, dc: number): boolean {
+  const silverMovesSente = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [1, -1],            [1, 1],
+  ];
+  const silverMovesGote = [
+    [-1, -1],           [-1, 1],
+    [1, -1],  [1, 0],   [1, 1],
+  ];
+  const ref = side === "sente" ? silverMovesSente : silverMovesGote;
+  return ref.some(([r, c]) => r === dr && c === dc);
+}
+
+function isKnightMove(side: Side, dr: number, dc: number): boolean {
+  if (side === "sente") return dr === -2 && Math.abs(dc) === 1;
+  return dr === 2 && Math.abs(dc) === 1;
+}
+
+function isPawnMove(side: Side, dr: number, dc: number): boolean {
+  if (side === "sente") return dr === -1 && dc === 0;
+  return dr === 1 && dc === 0;
+}
+
+function isKingMove(dr: number, dc: number): boolean {
+  return Math.abs(dr) <= 1 && Math.abs(dc) <= 1 && !(dr === 0 && dc === 0);
+}
+
+function isRookMove(dr: number, dc: number): boolean {
+  return (dr === 0 && dc !== 0) || (dc === 0 && dr !== 0);
+}
+
+function isBishopMove(dr: number, dc: number): boolean {
+  return Math.abs(dr) === Math.abs(dc) && dr !== 0;
+}
+
+function isLanceMove(side: Side, dr: number, dc: number): boolean {
+  if (dc !== 0) return false;
+  if (side === "sente") return dr < 0; // up only
+  return dr > 0; // down only
+}
+
+function violatesEndRankRestriction(piece: string, side: Side, toR: number): boolean {
+  // Without promotions, disallow moves that would require promotion
+  // Pawn/Lance cannot end on last rank; Knight cannot end on last two ranks.
+  if (side === "sente") {
+    if ((piece === "P" || piece === "L") && toR === 0) return true;
+    if (piece === "N" && toR <= 1) return true;
+  } else {
+    if ((piece === "p" || piece === "l") && toR === 8) return true;
+    if (piece === "n" && toR >= 7) return true;
+  }
+  return false;
+}
+
+function isLegalMove(
+  board: (string | null)[][],
+  fromR: number,
+  fromC: number,
+  toR: number,
+  toC: number,
+  piece: string,
+  side: Side
+): boolean {
+  if (!inBounds(toR, toC)) return false;
+  if (fromR === toR && fromC === toC) return false;
+
+  const target = board[toR][toC];
+  if (target && getSide(target) === side) return false; // cannot capture own piece
+
+  const dr = toR - fromR;
+  const dc = toC - fromC;
+
+  // Last rank restrictions without promotion support
+  if (violatesEndRankRestriction(piece, side, toR)) return false;
+
+  const p = piece.toLowerCase();
+  switch (p) {
+    case "k":
+      return isKingMove(dr, dc);
+    case "g":
+      return isGoldMove(side, dr, dc);
+    case "s":
+      return isSilverMove(side, dr, dc);
+    case "n":
+      return isKnightMove(side, dr, dc);
+    case "p":
+      return isPawnMove(side, dr, dc);
+    case "l":
+      if (!isLanceMove(side, dr, dc)) return false;
+      return pathClear(board, fromR, fromC, toR, toC);
+    case "r":
+      if (!isRookMove(dr, dc)) return false;
+      return pathClear(board, fromR, fromC, toR, toC);
+    case "b":
+      if (!isBishopMove(dr, dc)) return false;
+      return pathClear(board, fromR, fromC, toR, toC);
+    default:
+      return false;
+  }
+}
+
 function parseBoardFromSFEN(sfen: string): (string | null)[][] {
   const board: (string | null)[][] = Array.from({ length: 9 }, () => Array(9).fill(null));
   const rows = sfen.split("/");
@@ -83,6 +222,7 @@ function boardToSFEN(board: (string | null)[][]): string {
 
 export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoardProps) {
   const [dragFrom, setDragFrom] = useState<{ r: number; c: number } | null>(null);
+  const [turn, setTurn] = useState<Side>("sente");
 
   const sfen = position && position.trim().length > 0 ? position : SHOGI_START_SFEN;
   const board = useMemo(() => parseBoardFromSFEN(sfen), [sfen]);
@@ -90,26 +230,34 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
   const handleDrop = useCallback(
     (toR: number, toC: number) => {
       if (!dragFrom) return;
-      const next = board.map((row) => row.slice());
-      const piece = next[dragFrom.r][dragFrom.c];
-      if (!piece) {
+      const piece = board[dragFrom.r][dragFrom.c];
+      if (!piece) { setDragFrom(null); return; }
+      const side = getSide(piece);
+      if (side !== turn) { setDragFrom(null); return; }
+
+      if (!isLegalMove(board, dragFrom.r, dragFrom.c, toR, toC, piece, side)) {
         setDragFrom(null);
         return;
       }
+
+      const next = board.map((row) => row.slice());
       next[dragFrom.r][dragFrom.c] = null;
       next[toR][toC] = piece;
-
       const nextSFEN = boardToSFEN(next);
       onPositionChange?.(nextSFEN);
+      setTurn((prev) => (prev === "sente" ? "gote" : "sente"));
       setDragFrom(null);
     },
-    [board, dragFrom, onPositionChange]
+    [board, dragFrom, onPositionChange, turn]
   );
 
   const squareSize = Math.floor(size / 9);
 
   return (
-    <div className="flex justify-center">
+    <div className="flex justify-center flex-col items-center gap-2">
+      <div className="text-sm text-gray-800 bg-white/70 px-3 py-1 rounded-md shadow">
+        Turn: {turn === "sente" ? "Sente (▲)" : "Gote (▽)"}
+      </div>
       <div
         className="relative"
         style={{
@@ -164,6 +312,7 @@ export function ShogiBoard({ position, onPositionChange, size = 450 }: ShogiBoar
                         transform: /[a-z]/.test(cell) ? "rotate(180deg)" : "none",
                         boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
                         paddingBottom: 2,
+                        opacity: getSide(cell) === turn ? 1 : 0.6,
                       }}
                       title={cell}
                     >
